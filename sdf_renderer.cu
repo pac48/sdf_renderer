@@ -60,9 +60,23 @@ namespace internal {
         }
     }
 
+    __device__ __forceinline__ void rotate_vec(const float *const T, const float *const vec_in, float *vec_out) {
+        for (int i = 0; i < 3; i++) {
+            vec_out[i] = 0.0;
+        }
+
+#pragma unroll
+        for (int i = 0; i < 3; i++) {
+#pragma unroll
+            for (int j = 0; j < 3; j++) {
+                vec_out[i] += T[i * 4 + j] * vec_in[i];
+            }
+        }
+    }
+
     __global__ void
     render_kernel(float fx, float fy, int res_x, int res_y,
-                  const SDFObjectGPU *const sdf_object_gpu,
+                  const SDFObjectGPU::GPUData *const sdf_object_gpu,
                   unsigned char *img) {
         constexpr int stride = 4;
         unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -78,13 +92,20 @@ namespace internal {
             float scale = 1.0;
             float brightness = 200;
 
-            float point_orig[3] = {near_dist * (ind_x - res_x / 2) / fx, near_dist * (ind_y - res_y / 2) / fy,
+            float delta_orig[3] = {near_dist * (ind_x - res_x / 2) / fx, near_dist * (ind_y - res_y / 2) / fy,
                                    near_dist};
+            float light_dir[3] = {sdf_object_gpu->sdf_object_gpu->T[2], sdf_object_gpu->sdf_object_gpu->T[6],
+                                  sdf_object_gpu->sdf_object_gpu->T[10]};
             float point[3];
-            transform_vec(sdf_object_gpu->sdf_object_gpu->T, point_orig, point);
-            float dir_x = point_orig[0] / near_dist;
-            float dir_y = point_orig[1] / near_dist;
-            float dir_z = point_orig[2] / near_dist;
+            float dir[3];
+
+            transform_vec(sdf_object_gpu->sdf_object_gpu->T, delta_orig, point);
+            rotate_vec(sdf_object_gpu->sdf_object_gpu->T, delta_orig, dir);
+
+            float dir_len = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
+            float dir_x = dir[0] / dir_len;
+            float dir_y = dir[1] / dir_len;
+            float dir_z = dir[2] / dir_len;
 
             while (dist > thresh && dist < far_dist) {
                 dist = scale * sdf_object_gpu->get_signed_distance(point, sdf_object_gpu->sdf_object_gpu);
@@ -100,7 +121,8 @@ namespace internal {
             if (dist <= thresh) {
                 float normal[3];
                 sdf_object_gpu->get_sdf_normal(point, normal, sdf_object_gpu->sdf_object_gpu);
-                brightness *= max(-normal[2], 0.0f);
+                float res = normal[0] * light_dir[0] + normal[1] * light_dir[1] + normal[2] * light_dir[2];
+                brightness *= max(-res, 0.0f);
                 img[stride * idx] = brightness;
                 img[stride * idx + 1] = brightness;
                 img[stride * idx + 2] = brightness;
@@ -114,21 +136,13 @@ namespace internal {
 
     std::vector<unsigned char>
     render(float fx, float fy, unsigned int res_x, unsigned int res_y, SDFObject &sdf_object_cpu) {
-        sdf_object_cpu.T[3] = sdf_object_cpu.x;
-        sdf_object_cpu.T[7] = sdf_object_cpu.y;
-        sdf_object_cpu.T[11] = sdf_object_cpu.z;
-
         SDFObjectGPU sdf_object_gpu = sdf_object_cpu.createGPU();
         constexpr size_t block_size = 256;
         size_t num_threads = res_y * res_x;
         size_t grid_size = (num_threads + block_size - 1) / block_size;
         BufferGPU<unsigned char> img_buffer{res_x * res_y * 4};
 
-        SDFObjectGPU *sdf_object_gpu_d;
-        cudaMalloc(&sdf_object_gpu_d, sizeof(SDFObjectGPU));
-        cudaMemcpy(sdf_object_gpu_d, &sdf_object_gpu, sizeof(SDFObjectGPU), cudaMemcpyKind::cudaMemcpyHostToDevice);
-
-        render_kernel<<<grid_size, block_size>>>(fx, fy, res_x, res_y, sdf_object_gpu_d,
+        render_kernel<<<grid_size, block_size>>>(fx, fy, res_x, res_y, sdf_object_gpu.gpu_data,
                                                  img_buffer.buffer);
 
         auto img = img_buffer.toCPU();

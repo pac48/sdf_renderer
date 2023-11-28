@@ -29,9 +29,17 @@ namespace GPUImpl::Sphere {
     __device__ get_sdf_normal_t sdf_normal_func_d = get_sdf_normal;
 
     SDFObjectGPU create(SDFObject *sdf_object_cpu) {
-        SDFObjectGPU out{*sdf_object_cpu};    //{sdf_func_d, sdf_normal_func_d, *sdf_object_cpu};
-        cudaMemcpyFromSymbol(&out.get_signed_distance, sdf_func_d, sizeof(get_signed_distance_t));
-        cudaMemcpyFromSymbol(&out.get_sdf_normal, sdf_normal_func_d, sizeof(get_sdf_normal_t));
+        SDFObjectGPU out;    //{sdf_func_d, sdf_normal_func_d, *sdf_object_cpu};
+
+        SDFObjectGPU::GPUData gpu_data_local;
+        cudaMalloc(&gpu_data_local.sdf_object_gpu, sizeof(SDFSphere));
+        cudaMemcpy(gpu_data_local.sdf_object_gpu, sdf_object_cpu, sizeof(SDFSphere),
+                   cudaMemcpyKind::cudaMemcpyHostToDevice);
+        cudaMalloc(&out.gpu_data, sizeof(SDFObjectGPU::GPUData));
+        cudaMemcpy(out.gpu_data, &gpu_data_local, sizeof(SDFObjectGPU::GPUData), cudaMemcpyKind::cudaMemcpyHostToDevice);
+
+        cudaMemcpyFromSymbol(&out.gpu_data->get_signed_distance, sdf_func_d, sizeof(get_signed_distance_t));
+        cudaMemcpyFromSymbol(&out.gpu_data->get_sdf_normal, sdf_normal_func_d, sizeof(get_sdf_normal_t));
 
         return std::move(out);
     }
@@ -40,4 +48,11 @@ namespace GPUImpl::Sphere {
 SDFObjectGPU SDFSphere::createGPU() {
     SDFObjectGPU &&out = GPUImpl::Sphere::create(this);
     return std::move(out);
+}
+
+std::shared_ptr<SDFObject> SDFSpherePy::operator()() {
+    auto obj_ptr = new SDFSphere;
+    memcpy(obj_ptr->T, this->T.data(), 12 * sizeof(float));
+    obj_ptr->radius = this->radius;
+    return std::shared_ptr<SDFObject>((SDFObject *) obj_ptr);
 }
