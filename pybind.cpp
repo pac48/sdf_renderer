@@ -6,10 +6,13 @@
 #include <variant>
 
 pybind11::array_t<uint8_t>
-render(float fx, float fy, unsigned int res_x, unsigned int res_y, std::variant<SDFSpherePy> &sdf_object) {
+render(float fx, float fy, unsigned int res_x, unsigned int res_y,
+       std::variant<SDFSpherePy, SDFPolynomialPy> &sdf_object) {
 
     std::shared_ptr<SDFObject> object;
     if (SDFSpherePy *obj_py = std::get_if<SDFSpherePy>(&sdf_object)) {
+        object = obj_py->operator()();
+    } else if (SDFPolynomialPy *obj_py = std::get_if<SDFPolynomialPy>(&sdf_object)) {
         object = obj_py->operator()();
     } else {
         throw pybind11::type_error();
@@ -47,4 +50,32 @@ PYBIND11_MODULE(sdf_experiments_py, m) {
                 return ss.str();
             }).def_readwrite("T", &SDFSpherePy::T)
             .def_readwrite("radius", &SDFSpherePy::radius);
+    pybind11::class_<SDFPolynomialPy>(m, "SDFPolynomial", R"(
+    SDFPolynomial contains parameters of SDF.
+									     )")
+
+            .def(pybind11::init([](int num_coefficients) {
+                     auto sdf_object = SDFPolynomialPy(num_coefficients);
+                     return sdf_object;
+                 }),
+                 R"(
+                 Init.
+           )").def("__str__", [](const SDFPolynomialPy &sdf_object) {
+                std::stringstream ss;
+                for (int r = 0; r < 3; r++) {
+                    ss << "T:\n[";
+                    for (int c = 0; c < 4; c++) {
+                        ss << sdf_object.T.data()[r * 4 + c] << ", ";
+                    }
+                    ss << "]\n";
+                }
+                ss << "p :\n[";
+                for (int i = 0; i < sdf_object.coefficients.size(); i++) {
+                    ss << sdf_object.coefficients.data()[i] << ", ";
+                }
+                ss << "]\n";
+
+                return ss.str();
+            }).def_readwrite("T", &SDFPolynomialPy::T)
+            .def_readwrite("coefficients", &SDFPolynomialPy::coefficients);
 }
