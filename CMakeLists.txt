@@ -24,7 +24,7 @@ execute_process(
 pybind11_add_module(sdf_experiments_py pybind.cpp)
 add_library(sdf_renderer sdf_renderer.cu)
 set_target_properties(sdf_renderer PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON CUDA_SEPARABLE_COMPILATION ON)
-target_compile_options(sdf_renderer PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-g -G -lineinfo>)
+#target_compile_options(sdf_renderer PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-g -G -lineinfo>)
 
 target_link_libraries(sdf_experiments_py PUBLIC sdf_renderer)
 

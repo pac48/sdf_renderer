@@ -38,28 +38,118 @@ struct BufferGPU {
 };
 
 namespace internal {
+
+    __device__ __forceinline__ void transform_mul(const float *const T1, const float *const T2, float *T_out) {
+        for (int i = 0; i < 12; i++) {
+            T_out[i] = 0.0;
+        }
+
+#pragma unroll
+        for (int k = 0; k < 4; k++) {
+#pragma unroll
+            for (int j = 0; j < 4; j++) {
+#pragma unroll
+                for (int i = 0; i < 3; i++) {
+                    T_out[i * 4 + j] += T1[i * 4 + k] * T2[k * 3 + j];
+                }
+            }
+        }
+    }
+
+    __device__ __forceinline__ void transform_vec(const float *const T, const float *const vec_in, float *vec_out) {
+        for (int i = 0; i < 3; i++) {
+            vec_out[i] = 0.0;
+        }
+
+#pragma unroll
+        for (int i = 0; i < 3; i++) {
+#pragma unroll
+            for (int j = 0; j < 3; j++) {
+                vec_out[i] += T[i * 4 + j] * vec_in[i];
+            }
+            vec_out[i] += T[i * 4 + 3];
+        }
+    }
+
+
+    __device__ __forceinline__ float
+    get_signed_distance(const float point[3], const SDFObject *const sdf_object_gpu) {
+        float dx = point[0];// - sdf_object_gpu->x;
+        float dy = point[1];// - sdf_object_gpu->y;
+        float dz = point[2];// - sdf_object_gpu->z;
+
+        return sqrt(dx * dx + dy * dy + dz * dz) - sdf_object_gpu->radius;
+    }
+
+    __device__ __forceinline__ void
+    get_sdf_normal(const float point[3], float normal[3], const SDFObject *const sdf_object_gpu) {
+        float dx = point[0];// - sdf_object_gpu->x;
+        float dy = point[1];// - sdf_object_gpu->y;
+        float dz = point[2];// - sdf_object_gpu->z;
+        float dist = sqrt(dx * dx + dy * dy + dz * dz);
+        normal[0] = dx / dist;
+        normal[1] = dy / dist;
+        normal[2] = dz / dist;
+    }
+
     __global__ void
-    render_kernel(float fx, float fy, unsigned int res_x, unsigned int res_y, const SDFObject *const sdf_object_gpu,
+    render_kernel(float fx, float fy, int res_x, int res_y,
+                  const SDFObject *const sdf_object_gpu,
                   unsigned char *img) {
         constexpr int stride = 4;
         unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
-        unsigned int ind_x = idx % res_x;
-        unsigned int ind_y = (idx / res_x) % res_y;
-
+        int ind_x = idx % res_x;
+        int ind_y = (idx / res_x) % res_y;
 
         if (idx < res_x * res_y) {
-            img[stride * idx] = (255 * ind_x) / res_x;
-            img[stride * idx + 1] = (256 * ind_y) / res_y;
-            img[stride * idx + 2] = 0;
+
+            float near_dist = 0.001;
+            float far_dist = 100.0;
+            float thresh = 0.001;
+            float dist = 1.0;
+            float scale = 0.9;
+            float brightness = 200;
+
+            float point_orig[3] = {near_dist * (ind_x - res_x / 2) / fx, near_dist * (ind_y - res_y / 2) / fy,
+                                   near_dist};
+            float point[3];
+            transform_vec(sdf_object_gpu->T, point_orig, point);
+            float dir_x = point_orig[0] / near_dist;
+            float dir_y = point_orig[1] / near_dist;
+            float dir_z = point_orig[2] / near_dist;
+//            printf("point_orig: [%f, %f, %f]\n", point[0], point[1], point[2]);
+//
+//            printf("dir: [%f, %f, %f]\n", dir_x, dir_y, dir_z);
+
+            while (dist > thresh && dist < far_dist) {
+                dist = scale * get_signed_distance(point, sdf_object_gpu);
+                point[0] += dist * dir_x;
+                point[1] += dist * dir_y;
+                point[2] += dist * dir_z;
+            }
+
             img[stride * idx + 3] = 255;
-
+            if (dist < thresh) {
+                float normal[3];
+                get_sdf_normal(point, normal, sdf_object_gpu);
+                brightness *= max(-normal[2], 0.0f);
+                img[stride * idx] = brightness;
+                img[stride * idx + 1] = brightness;
+                img[stride * idx + 2] = brightness;
+//                printf("hit! point: [%f, %f, %f]\n", point[0], point[1], point[2]);
+            } else {
+//                printf("miss! point: [%f, %f, %f]\n", point[0], point[1], point[2]);
+            }
         }
-
 
     }
 
     std::vector<unsigned char>
-    render(float fx, float fy, unsigned int res_x, unsigned int res_y, const SDFObject &sdf_object_cpu) {
+    render(float fx, float fy, unsigned int res_x, unsigned int res_y, SDFObject &sdf_object_cpu) {
+        sdf_object_cpu.T[3] = sdf_object_cpu.x;
+        sdf_object_cpu.T[7] = sdf_object_cpu.y;
+        sdf_object_cpu.T[11] = sdf_object_cpu.z;
+
         SDFObjectGPU sdf_object_gpu{sdf_object_cpu};
         constexpr size_t block_size = 256;
         size_t num_threads = res_y * res_x;

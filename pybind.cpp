@@ -3,10 +3,10 @@
 #include <sstream>
 #include "sdf_renderer.hpp"
 
-pybind11::array_t <uint8_t> render(float fx, float fy, unsigned int res_x, unsigned int res_y, const SDFObject &sdf_object) {
+pybind11::array_t<uint8_t> render(float fx, float fy, unsigned int res_x, unsigned int res_y, SDFObject &sdf_object) {
     auto img_vec = internal::render(fx, fy, res_x, res_y, sdf_object);
     pybind11::array_t<uint8_t> img(img_vec.size(), img_vec.data());
-//    img.resize({{4, res_x, res_y}});
+    img.resize({{res_x, res_y, 4}});
 
     return img;
 }
