@@ -17,14 +17,22 @@ if __name__ == "__main__":
 
     sdf_object.T[0, 3] = 0
     sdf_object.T[1, 3] = 0.0
-    sdf_object.T[2, 3] = -4.0
+    sdf_object.T[2, 3] = -2.0
 
-    res_y = 3000
-    res_x = 3000
-    fx = 1500
-    fy = 1500
-    img = sdf_experiments_py.render(fx, fy, res_x, res_y, sdf_object)
-    image = Image.fromarray(img[:, :, :4])
-    image.show()
-    pass
-    input()
+    while True:
+        res_y = controller.get_height()
+        res_x = controller.get_width()
+        fy = 300
+        fx = 300
+        img = sdf_experiments_py.render(fx, fy, res_x, res_y, sdf_object)
+
+        image = Image.fromarray(img[:, :, :4])
+        # image.show()
+
+        img = img[:, :, :3]
+        # img = img.transpose((1, 2, 0))
+        controller.set_img(img[::-1, :, :].copy())
+        import time
+        time.sleep(.1)
+        sdf_object.coefficients = 10 * (.5 - np.random.rand(sdf_object.coefficients.size))
+        sdf_object.coefficients[0] = 0

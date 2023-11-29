@@ -23,7 +23,7 @@ render(float fx, float fy, unsigned int res_x, unsigned int res_y,
 
     auto img_vec = internal::render(fx, fy, res_x, res_y, *object);
     pybind11::array_t<uint8_t> img(img_vec.size(), img_vec.data());
-    img.resize({{res_x, res_y, 4}});
+    img.resize({{res_y, res_x, 4}});
 
     return img;
 }
@@ -39,11 +39,11 @@ PYBIND11_MODULE(sdf_experiments_py, m) {
                  }),
                  R"(
                  Init.
-           )");
+           )").def("get_width", [](ImguiController &controller) { return controller.get_width(); })
+            .def("get_height", [](ImguiController &controller) { return controller.get_height(); })
+            .def("set_img", [](ImguiController &controller, const pybind11::array_t<uint8_t> &img) { return controller.set_img(img); });
     pybind11::class_<SDFSpherePy>(m, "SDFSphere", R"(
-    SDFSphere contains parameters of SDF.
-									     )")
-
+    SDFSphere contains parameters of SDF.)")
             .def(pybind11::init([]() {
                      auto sdf_object = SDFSpherePy();
                      return sdf_object;

@@ -85,7 +85,7 @@ namespace internal {
 
         if (idx < res_x * res_y) {
 
-            float near_dist = 0.001;
+            float near_dist = 0.01;
             float far_dist = 100.0;
             float thresh = 0.001;
             float dist = 1.0;
@@ -128,6 +128,9 @@ namespace internal {
                 img[stride * idx + 2] = brightness;
 //                printf("hit! point: [%f, %f, %f]\n", point[0], point[1], point[2]);
             } else {
+                img[stride * idx] = 0;
+                img[stride * idx + 1] = 0;
+                img[stride * idx + 2] = 0;
 //                printf("miss! point: [%f, %f, %f]\n", point[0], point[1], point[2]);
             }
         }
