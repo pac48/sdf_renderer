@@ -122,7 +122,7 @@ namespace internal {
                 float normal[3];
                 sdf_object_gpu->get_sdf_normal(point, normal, sdf_object_gpu->sdf_object_gpu);
                 float res = normal[0] * light_dir[0] + normal[1] * light_dir[1] + normal[2] * light_dir[2];
-                brightness *= max(-res, 0.0f);
+                brightness *= max(-res, 0.02f);
                 img[stride * idx] = brightness;
                 img[stride * idx + 1] = brightness;
                 img[stride * idx + 2] = brightness;
