@@ -4,6 +4,7 @@
 #include <pybind11/stl.h>
 #include <sstream>
 #include <variant>
+#include "gui.hpp"
 
 pybind11::array_t<uint8_t>
 render(float fx, float fy, unsigned int res_x, unsigned int res_y,
@@ -29,6 +30,16 @@ render(float fx, float fy, unsigned int res_x, unsigned int res_y,
 
 PYBIND11_MODULE(sdf_experiments_py, m) {
     m.def("render", render);
+    pybind11::class_<ImguiController>(m, "ImguiController", R"(
+    ImguiController used for rendering.
+									     )")
+            .def(pybind11::init([]() {
+                     auto controller = ImguiController();
+                     return controller;
+                 }),
+                 R"(
+                 Init.
+           )");
     pybind11::class_<SDFSpherePy>(m, "SDFSphere", R"(
     SDFSphere contains parameters of SDF.
 									     )")

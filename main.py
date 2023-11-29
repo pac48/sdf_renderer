@@ -7,6 +7,8 @@ if __name__ == "__main__":
     # sdf_object.radius = 1.0
     # sdf_object.coefficients = np.random.rand(10)
 
+    controller = sdf_experiments_py.ImguiController()
+
     tmp = np.meshgrid(np.linspace(-1., 1, 10), np.linspace(-1., 1, 10), np.linspace(-1., 1, 10), indexing='ij')
     centers = np.hstack([np.reshape(val, (-1, 1)) for val in tmp])
     sdf_object = sdf_experiments_py.SDFRadial(centers)

@@ -29,3 +29,17 @@ set_target_properties(sdf_renderer PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON CUD
 target_link_libraries(sdf_experiments_py PUBLIC sdf_renderer)
 
 install(TARGETS sdf_experiments_py LIBRARY DESTINATION ${SITE_PACKAGES_DIR}/sdf_experiments)
+
+# gui stuff
+set(imgui_src imgui/imgui.cpp imgui/imgui_demo.cpp imgui/imgui_draw.cpp
+    imgui/imgui_tables.cpp imgui/imgui_widgets.cpp imgui/backends/imgui_impl_opengl3.cpp
+    imgui/backends/imgui_impl_glfw.cpp)
+add_library(gui gui.cpp ${imgui_src})
+find_package(glfw3 REQUIRED)
+find_package(OpenGL)
+target_link_libraries(gui glfw)
+target_link_libraries(gui OpenGL::GL)
+target_include_directories(gui PUBLIC imgui/backends)
+target_include_directories(gui PUBLIC imgui)
+
+target_link_libraries(sdf_experiments_py PUBLIC gui)
