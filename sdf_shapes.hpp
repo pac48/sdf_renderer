@@ -12,7 +12,7 @@ public:
             0.0, 0.0, 1.0, 0.0
     };
 
-    virtual SDFObjectGPU createGPU() = 0;
+    virtual std::shared_ptr<SDFObjectGPU> createGPU() = 0;
 
 
 };
@@ -21,7 +21,7 @@ public:
 class SDFSphere : public SDFObject {
 public:
 
-    SDFObjectGPU createGPU() override;
+    std::shared_ptr<SDFObjectGPU> createGPU() override;
 
     float radius = 1;
 };
@@ -55,7 +55,7 @@ public:
     float *coefficients = nullptr;
     int num_coefficients = 0;
 
-    SDFObjectGPU createGPU() override;
+    std::shared_ptr<SDFObjectGPU> createGPU() override;
 
     ~SDFPolynomial() {
         if (coefficients) {
@@ -102,7 +102,7 @@ public:
     float *centers = nullptr;
     int num_coefficients = 0;
 
-    SDFObjectGPU createGPU() override;
+    std::shared_ptr<SDFObjectGPU> createGPU() override;
 
     ~SDFRadial() {
         if (coefficients) {

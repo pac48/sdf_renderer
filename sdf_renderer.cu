@@ -12,6 +12,18 @@ struct BufferGPU {
         cudaMalloc(&buffer, size * sizeof(T));
     }
 
+    BufferGPU(const BufferGPU &other) {
+        size = other.size;
+        cudaMalloc(&buffer, size * sizeof(T));
+    }
+
+    BufferGPU &operator=(const BufferGPU &other) {
+        cudaFree(buffer);
+        size = other.size;
+        cudaMalloc(&buffer, size * sizeof(T));
+        return *this;
+    }
+
     ~BufferGPU() {
         cudaFree(buffer);
     }
@@ -24,6 +36,8 @@ struct BufferGPU {
     }
 
 };
+
+std::shared_ptr<BufferGPU<unsigned char>> gpu_buffer = nullptr;
 
 
 namespace internal {
@@ -139,16 +153,19 @@ namespace internal {
 
     std::vector<unsigned char>
     render(float fx, float fy, unsigned int res_x, unsigned int res_y, SDFObject &sdf_object_cpu) {
-        SDFObjectGPU sdf_object_gpu = sdf_object_cpu.createGPU();
+        auto sdf_object_gpu = sdf_object_cpu.createGPU();
         constexpr size_t block_size = 256;
         size_t num_threads = res_y * res_x;
         size_t grid_size = (num_threads + block_size - 1) / block_size;
-        BufferGPU<unsigned char> img_buffer{res_x * res_y * 4};
 
-        render_kernel<<<grid_size, block_size>>>(fx, fy, res_x, res_y, sdf_object_gpu.gpu_data,
-                                                 img_buffer.buffer);
+        if (gpu_buffer== nullptr || res_x * res_y * 4 > gpu_buffer->size ) {
+            gpu_buffer = std::make_shared<BufferGPU<unsigned char>>(res_x * res_y * 4);
+        }
 
-        auto img = img_buffer.toCPU();
+        render_kernel<<<grid_size, block_size>>>(fx, fy, res_x, res_y, sdf_object_gpu->gpu_data,
+                                                 gpu_buffer->buffer);
+
+        auto img = gpu_buffer->toCPU();
 
         return img;
     }

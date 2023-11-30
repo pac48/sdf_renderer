@@ -1,6 +1,17 @@
 #include "sdf_shapes.hpp"
 #include "common.cu"
 
+template<typename T>
+void allocate_gpu_data(const T *sdf_object_cpu, SDFObjectGPU::GPUData *&gpu_data) {
+    SDFObjectGPU::GPUData gpu_data_local;
+    cudaMalloc(&gpu_data_local.sdf_object_gpu, sizeof(T));
+    cudaMemcpy(gpu_data_local.sdf_object_gpu, sdf_object_cpu, sizeof(T),
+               cudaMemcpyKind::cudaMemcpyHostToDevice);
+    cudaMalloc(&gpu_data, sizeof(SDFObjectGPU::GPUData));
+    cudaMemcpy(gpu_data, &gpu_data_local, sizeof(SDFObjectGPU::GPUData),
+               cudaMemcpyKind::cudaMemcpyHostToDevice);
+}
+
 namespace GPUImpl::Sphere {
     __device__ __forceinline__ float
     get_signed_distance(const float point[3], SDFObject *sdf_object_gpu) {
@@ -28,27 +39,26 @@ namespace GPUImpl::Sphere {
     __device__ get_signed_distance_t sdf_func_d = get_signed_distance;
     __device__ get_sdf_normal_t sdf_normal_func_d = get_sdf_normal;
 
-    SDFObjectGPU create(SDFObject *sdf_object_cpu) {
-        SDFObjectGPU out;    //{sdf_func_d, sdf_normal_func_d, *sdf_object_cpu};
+    class SDFSphereGPU : public SDFObjectGPU {
+    public:
+        SDFSphereGPU(SDFSphere *sdf_object_cpu) {
+            allocate_gpu_data(sdf_object_cpu, gpu_data);
 
-        SDFObjectGPU::GPUData gpu_data_local;
-        cudaMalloc(&gpu_data_local.sdf_object_gpu, sizeof(SDFSphere));
-        cudaMemcpy(gpu_data_local.sdf_object_gpu, sdf_object_cpu, sizeof(SDFSphere),
-                   cudaMemcpyKind::cudaMemcpyHostToDevice);
-        cudaMalloc(&out.gpu_data, sizeof(SDFObjectGPU::GPUData));
-        cudaMemcpy(out.gpu_data, &gpu_data_local, sizeof(SDFObjectGPU::GPUData),
-                   cudaMemcpyKind::cudaMemcpyHostToDevice);
+            cudaMemcpyFromSymbol(&gpu_data->get_signed_distance, sdf_func_d, sizeof(get_signed_distance_t));
+            cudaMemcpyFromSymbol(&gpu_data->get_sdf_normal, sdf_normal_func_d, sizeof(get_sdf_normal_t));
 
-        cudaMemcpyFromSymbol(&out.gpu_data->get_signed_distance, sdf_func_d, sizeof(get_signed_distance_t));
-        cudaMemcpyFromSymbol(&out.gpu_data->get_sdf_normal, sdf_normal_func_d, sizeof(get_sdf_normal_t));
+        }
 
-        return std::move(out);
-    }
+
+        ~SDFSphereGPU() {
+            //TODO
+        }
+    };
 }
 
-SDFObjectGPU SDFSphere::createGPU() {
-    SDFObjectGPU &&out = GPUImpl::Sphere::create(this);
-    return std::move(out);
+std::shared_ptr<SDFObjectGPU> SDFSphere::createGPU() {
+    auto out = std::shared_ptr<SDFObjectGPU>(new GPUImpl::Sphere::SDFSphereGPU(this));
+    return out;
 }
 
 
@@ -74,30 +84,26 @@ namespace GPUImpl::Polynomial {
     __device__ get_signed_distance_t sdf_func_d = get_signed_distance;
     __device__ get_sdf_normal_t sdf_normal_func_d = get_sdf_normal;
 
-    SDFObjectGPU create(SDFPolynomial *sdf_object_cpu) {
-        SDFObjectGPU out;
-        //TODO params need to be copied to GPU
+    class SDFPolynomialGPU : public SDFObjectGPU {
+    public:
+        SDFPolynomialGPU(SDFPolynomial *sdf_object_cpu) {
 
-        SDFObjectGPU::GPUData gpu_data_local;
-        cudaMalloc(&gpu_data_local.sdf_object_gpu, sizeof(SDFPolynomial));
-        cudaMemcpy(gpu_data_local.sdf_object_gpu, sdf_object_cpu, sizeof(SDFPolynomial),
-                   cudaMemcpyKind::cudaMemcpyHostToDevice);
-        cudaMalloc(&out.gpu_data, sizeof(SDFObjectGPU::GPUData));
-        cudaMemcpy(out.gpu_data, &gpu_data_local, sizeof(SDFObjectGPU::GPUData),
-                   cudaMemcpyKind::cudaMemcpyHostToDevice);
+            allocate_gpu_data(sdf_object_cpu, gpu_data);
 
-        cudaMemcpyFromSymbol(&out.gpu_data->get_signed_distance, sdf_func_d, sizeof(get_signed_distance_t));
-        cudaMemcpyFromSymbol(&out.gpu_data->get_sdf_normal, sdf_normal_func_d, sizeof(get_sdf_normal_t));
+            cudaMemcpyFromSymbol(&gpu_data->get_signed_distance, sdf_func_d, sizeof(get_signed_distance_t));
+            cudaMemcpyFromSymbol(&gpu_data->get_sdf_normal, sdf_normal_func_d, sizeof(get_sdf_normal_t));
+        }
 
-        return std::move(out);
-    }
+        ~SDFPolynomialGPU() {
+            //TODO
+        }
+    };
 }
 
-SDFObjectGPU SDFPolynomial::createGPU() {
-    SDFObjectGPU &&out = GPUImpl::Polynomial::create(this);
-    return std::move(out);
+std::shared_ptr<SDFObjectGPU> SDFPolynomial::createGPU() {
+    auto out = std::shared_ptr<SDFObjectGPU>(new GPUImpl::Polynomial::SDFPolynomialGPU(this));
+    return out;
 }
-
 
 namespace GPUImpl::Radial {
     __device__ __forceinline__ float
@@ -127,9 +133,9 @@ namespace GPUImpl::Radial {
         float dy = point[1];
         float dz = point[2];
         float dist = sqrt(dx * dx + dy * dy + dz * dz);
-        normal[0] = 0*dx / dist;
-        normal[1] = 0*dy / dist;
-        normal[2] = 0*dz / dist;
+        normal[0] = 0 * dx / dist;
+        normal[1] = 0 * dy / dist;
+        normal[2] = 0 * dz / dist;
 
         auto sdf_radial_gpu = (SDFRadial *) sdf_object_gpu;
 
@@ -153,39 +159,53 @@ namespace GPUImpl::Radial {
     __device__ get_signed_distance_t sdf_func_d = get_signed_distance;
     __device__ get_sdf_normal_t sdf_normal_func_d = get_sdf_normal;
 
-    SDFObjectGPU create(SDFRadial *sdf_object_cpu) {
-        SDFObjectGPU out;    //{sdf_func_d, sdf_normal_func_d, *sdf_object_cpu};
+    class SDFRadialGPU : public SDFObjectGPU {
+    public:
+        SDFRadialGPU();
 
-        SDFRadial sdf_object_cpu_copy = *sdf_object_cpu;
-        cudaMalloc(&sdf_object_cpu_copy.centers, sdf_object_cpu_copy.num_coefficients * sizeof(float) * 3);
-        cudaMemcpy(sdf_object_cpu_copy.centers, sdf_object_cpu->centers,
-                   sdf_object_cpu_copy.num_coefficients * sizeof(float) * 3,
-                   cudaMemcpyKind::cudaMemcpyHostToDevice);
-        cudaMalloc(&sdf_object_cpu_copy.coefficients, sdf_object_cpu_copy.num_coefficients * sizeof(float));
-        cudaMemcpy(sdf_object_cpu_copy.coefficients, sdf_object_cpu->coefficients,
-                   sdf_object_cpu_copy.num_coefficients * sizeof(float), cudaMemcpyKind::cudaMemcpyHostToDevice);
+        SDFRadialGPU(SDFRadial *sdf_object_cpu) {
 
+//            SDFRadial sdf_object_cpu_copy = *sdf_object_cpu;
+            float *old_center = sdf_object_cpu->centers;
+            float *old_coefficients = sdf_object_cpu->coefficients;
 
-        SDFObjectGPU::GPUData gpu_data_local;
-        cudaMalloc(&gpu_data_local.sdf_object_gpu, sizeof(SDFRadial));
-        cudaMemcpy(gpu_data_local.sdf_object_gpu, &sdf_object_cpu_copy, sizeof(SDFRadial),
-                   cudaMemcpyKind::cudaMemcpyHostToDevice);
+            cudaMalloc(&sdf_object_cpu->centers, sdf_object_cpu->num_coefficients * sizeof(float) * 3);
+            cudaMemcpy(sdf_object_cpu->centers, old_center,
+                       sdf_object_cpu->num_coefficients * sizeof(float) * 3,
+                       cudaMemcpyKind::cudaMemcpyHostToDevice);
+            cudaMalloc(&sdf_object_cpu->coefficients, sdf_object_cpu->num_coefficients * sizeof(float));
+            cudaMemcpy(sdf_object_cpu->coefficients, old_coefficients,
+                       sdf_object_cpu->num_coefficients * sizeof(float), cudaMemcpyKind::cudaMemcpyHostToDevice);
 
-        cudaMalloc(&out.gpu_data, sizeof(SDFObjectGPU::GPUData));
-        cudaMemcpy(out.gpu_data, &gpu_data_local, sizeof(SDFObjectGPU::GPUData),
-                   cudaMemcpyKind::cudaMemcpyHostToDevice);
+            allocate_gpu_data(sdf_object_cpu, gpu_data);
 
-        cudaMemcpyFromSymbol(&out.gpu_data->get_signed_distance, sdf_func_d, sizeof(get_signed_distance_t));
-        cudaMemcpyFromSymbol(&out.gpu_data->get_sdf_normal, sdf_normal_func_d, sizeof(get_sdf_normal_t));
+            cudaMemcpyFromSymbol(&gpu_data->get_signed_distance, sdf_func_d, sizeof(get_signed_distance_t));
+            cudaMemcpyFromSymbol(&gpu_data->get_sdf_normal, sdf_normal_func_d, sizeof(get_sdf_normal_t));
 
-        sdf_object_cpu_copy.centers = nullptr;
-        sdf_object_cpu_copy.coefficients = nullptr;
+            sdf_object_cpu->centers = old_center;
+            sdf_object_cpu->coefficients = old_coefficients;
 
-        return std::move(out);
-    }
+        }
+
+        ~SDFRadialGPU() {
+            SDFObjectGPU::GPUData gpu_data_local;
+            cudaMemcpy(&gpu_data_local, gpu_data, sizeof(SDFObjectGPU::GPUData),
+                       cudaMemcpyKind::cudaMemcpyDeviceToHost);
+            cudaFree(gpu_data);
+
+            SDFRadial sdf_object_gpu;
+            cudaMemcpy(&sdf_object_gpu, gpu_data_local.sdf_object_gpu, sizeof(SDFRadial),
+                       cudaMemcpyKind::cudaMemcpyDeviceToHost);
+            cudaFree(sdf_object_gpu.centers);
+            cudaFree(sdf_object_gpu.coefficients);
+            cudaFree(gpu_data_local.sdf_object_gpu);
+            sdf_object_gpu.centers = nullptr;
+            sdf_object_gpu.coefficients = nullptr;
+        }
+    };
 }
 
-SDFObjectGPU SDFRadial::createGPU() {
-    SDFObjectGPU &&out = GPUImpl::Radial::create(this);
-    return std::move(out);
+std::shared_ptr<SDFObjectGPU> SDFRadial::createGPU() {
+    auto out = std::shared_ptr<SDFObjectGPU>(new GPUImpl::Radial::SDFRadialGPU(this));
+    return out;
 }

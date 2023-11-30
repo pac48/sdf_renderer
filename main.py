@@ -25,12 +25,7 @@ if __name__ == "__main__":
         fy = 300
         fx = 300
         img = sdf_experiments_py.render(fx, fy, res_x, res_y, sdf_object)
-
-        image = Image.fromarray(img[:, :, :4])
-        # image.show()
-
         img = img[:, :, :3]
-        # img = img.transpose((1, 2, 0))
         controller.set_img(img[::-1, :, :].copy())
         import time
         time.sleep(.1)
