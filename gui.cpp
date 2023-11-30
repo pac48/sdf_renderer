@@ -18,6 +18,7 @@
 #endif
 
 #include <GLFW/glfw3.h> // Will drag system OpenGL headers
+#include <iostream>
 
 // [Win32] Our example includes a copy of glfw3.lib pre-compiled with VS2010 to maximize ease of testing and compatibility with old VS compilers.
 // To link with VS2010-era libraries, VS2015+ requires linking with legacy_stdio_definitions.lib, which we do using this pragma.
@@ -44,9 +45,13 @@ struct RenderData {
 using namespace imgui_rendering;
 // Main code
 imgui_rendering::State state;
+Eigen::Matrix3f last_rotation;
+Eigen::Vector3f last_pos;
 
 void imgui_rendering::init() {
     state.data = std::make_shared<RenderData>();
+    last_pos = state.pos;
+    last_rotation = state.rotation;
 
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
@@ -118,6 +123,7 @@ void imgui_rendering::init() {
     // Our state
 }
 
+
 void imgui_rendering::render_frame() {
     if (!glfwWindowShouldClose(state.data->window)) {
         // Poll and handle events (inputs, window resize, etc.)
@@ -126,6 +132,64 @@ void imgui_rendering::render_frame() {
         // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application, or clear/overwrite your copy of the keyboard data.
         // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
         glfwPollEvents();
+
+        float speed = 0.03 * 7;
+        if (ImGui::IsKeyDown(ImGuiKey::ImGuiKey_W)) {
+            state.pos += speed * state.rotation.col(2);
+        }
+        if (ImGui::IsKeyDown(ImGuiKey::ImGuiKey_S)) {
+            state.pos -= speed * state.rotation.col(2);
+        }
+        if (ImGui::IsKeyDown(ImGuiKey::ImGuiKey_D)) {
+            state.pos += speed * state.rotation.col(0);
+        }
+        if (ImGui::IsKeyDown(ImGuiKey::ImGuiKey_A)) {
+            state.pos -= speed * state.rotation.col(0);
+        }
+        if (ImGui::IsKeyDown(ImGuiKey::ImGuiKey_Q)) {
+            state.pos += speed * state.rotation.col(1);
+        }
+        if (ImGui::IsKeyDown(ImGuiKey::ImGuiKey_E)) {
+            state.pos -= speed * state.rotation.col(1);
+        }
+
+        if (state.pos.norm() > 20) {
+            state.pos = 20 * state.pos / state.pos.norm();
+        }
+
+        if (ImGui::IsMouseDown(0)) {
+            auto mouse_delta = ImGui::GetMouseDragDelta();
+            float delta_x = 3*mouse_delta.x / state.width;
+            float delta_y = 3*mouse_delta.y / state.height;
+
+            Eigen::Matrix3f rotx = Eigen::Matrix3f::Identity();
+            Eigen::Matrix3f roty= Eigen::Matrix3f::Identity();
+            Eigen::Matrix3f rot= Eigen::Matrix3f::Identity();
+            rotx(1, 1) = 1;
+            rotx(0, 0) = cos(-delta_x);
+            rotx(0, 2) = -sin(-delta_x);
+            rotx(2, 2) = cos(-delta_x);
+            rotx(2, 0) = sin(-delta_x);
+
+            roty(0, 0) = 1;
+            roty(1, 1) = cos(-delta_y);
+            roty(1, 2) = -sin(-delta_y);
+            roty(2, 2) = cos(-delta_y);
+            roty(2, 1) = sin(-delta_y);
+
+            rot = rotx * roty;
+
+            state.rotation = last_rotation*rot;
+
+            Eigen::AngleAxisf aa(state.rotation);    // RotationMatrix to AxisAngle
+            state.rotation = aa.toRotationMatrix();  // AxisAngle      to RotationMatrix
+
+//            std::cout << rot << "\n";
+            state.pos = state.rotation*rot * state.rotation.transpose()*last_pos;
+        } else {
+            last_rotation = state.rotation;
+            last_pos = state.pos;
+        }
 
         // Start the Dear ImGui frame
         ImGui_ImplOpenGL3_NewFrame();

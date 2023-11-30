@@ -68,7 +68,7 @@ namespace internal {
         for (int i = 0; i < 3; i++) {
 #pragma unroll
             for (int j = 0; j < 3; j++) {
-                vec_out[i] += T[i * 4 + j] * vec_in[i];
+                vec_out[i] += T[i * 4 + j] * vec_in[j];
             }
             vec_out[i] += T[i * 4 + 3];
         }
@@ -83,7 +83,7 @@ namespace internal {
         for (int i = 0; i < 3; i++) {
 #pragma unroll
             for (int j = 0; j < 3; j++) {
-                vec_out[i] += T[i * 4 + j] * vec_in[i];
+                vec_out[i] += T[i * 4 + j] * vec_in[j];
             }
         }
     }
@@ -103,7 +103,7 @@ namespace internal {
             float far_dist = 100.0;
             float thresh = 0.001;
             float dist = 1.0;
-            float scale = 1.0;
+            float scale = 0.1;
             float brightness = 200;
 
             float delta_orig[3] = {near_dist * (ind_x - res_x / 2) / fx, near_dist * (ind_y - res_y / 2) / fy,
@@ -136,7 +136,7 @@ namespace internal {
                 float normal[3];
                 sdf_object_gpu->get_sdf_normal(point, normal, sdf_object_gpu->sdf_object_gpu);
                 float res = normal[0] * light_dir[0] + normal[1] * light_dir[1] + normal[2] * light_dir[2];
-                brightness *= max(-res, 0.02f);
+                brightness *= max(-res, 0.03f);
                 img[stride * idx] = brightness;
                 img[stride * idx + 1] = brightness;
                 img[stride * idx + 2] = brightness;

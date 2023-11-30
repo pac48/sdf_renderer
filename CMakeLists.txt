@@ -37,8 +37,12 @@ set(imgui_src imgui/imgui.cpp imgui/imgui_demo.cpp imgui/imgui_draw.cpp
 add_library(gui gui.cpp ${imgui_src})
 find_package(glfw3 REQUIRED)
 find_package(OpenGL)
+find_package(Eigen3)
+target_include_directories(gui PUBLIC ${EIGEN3_INCLUDE_DIR})
+
 target_link_libraries(gui glfw)
 target_link_libraries(gui OpenGL::GL)
+target_link_libraries(gui Eigen3::Eigen)
 target_include_directories(gui PUBLIC imgui/backends)
 target_include_directories(gui PUBLIC imgui)
 

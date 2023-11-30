@@ -106,6 +106,8 @@ std::shared_ptr<SDFObjectGPU> SDFPolynomial::createGPU() {
 }
 
 namespace GPUImpl::Radial {
+    constexpr float width = 0.5f;
+
     __device__ __forceinline__ float
     get_signed_distance(const float point[3], SDFObject *sdf_object_gpu) {
         float dx = point[0];
@@ -120,7 +122,7 @@ namespace GPUImpl::Radial {
             dx = sdf_radial_gpu->centers[3 * i] - point[0];
             dy = sdf_radial_gpu->centers[3 * i + 1] - point[1];
             dz = sdf_radial_gpu->centers[3 * i + 2] - point[2];
-            dist += sdf_radial_gpu->coefficients[i] * expf((-1.0f / (2.0f * .1f)) * (dx * dx + dy * dy + dz * dz));
+            dist += sdf_radial_gpu->coefficients[i] * expf((-1.0f / (2.0f * width)) * (dx * dx + dy * dy + dz * dz));
         }
 
         return dist;
@@ -133,9 +135,9 @@ namespace GPUImpl::Radial {
         float dy = point[1];
         float dz = point[2];
         float dist = sqrt(dx * dx + dy * dy + dz * dz);
-        normal[0] = 0 * dx / dist;
-        normal[1] = 0 * dy / dist;
-        normal[2] = 0 * dz / dist;
+        normal[0] = dx / dist;
+        normal[1] = dy / dist;
+        normal[2] = dz / dist;
 
         auto sdf_radial_gpu = (SDFRadial *) sdf_object_gpu;
 
@@ -144,10 +146,11 @@ namespace GPUImpl::Radial {
             dx = sdf_radial_gpu->centers[3 * i] - point[0];
             dy = sdf_radial_gpu->centers[3 * i + 1] - point[1];
             dz = sdf_radial_gpu->centers[3 * i + 2] - point[2];
-            float tmp = sdf_radial_gpu->coefficients[i] * expf((-1.0f / (2.0f * .1f)) * (dx * dx + dy * dy + dz * dz));
-            normal[0] += (-1.0f / .1f) * dx * tmp;
-            normal[1] += (-1.0f / .1f) * dy * tmp;
-            normal[2] += (-1.0f / .1f) * dz * tmp; // negative?
+            float tmp =
+                    sdf_radial_gpu->coefficients[i] * expf((-1.0f / (2.0f * width)) * (dx * dx + dy * dy + dz * dz));
+            normal[0] -= (-1.0f / width) * dx * tmp;
+            normal[1] -= (-1.0f / width) * dy * tmp;
+            normal[2] -= (-1.0f / width) * dz * tmp; // negative?
         }
         float scale = sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
         normal[0] /= scale;

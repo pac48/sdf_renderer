@@ -41,6 +41,7 @@ PYBIND11_MODULE(sdf_experiments_py, m) {
                  Init.
            )").def("get_width", [](ImguiController &controller) { return controller.get_width(); })
             .def("get_height", [](ImguiController &controller) { return controller.get_height(); })
+            .def("get_camera_transform", [](ImguiController &controller) { return controller.get_camera_transform(); })
             .def("set_img", [](ImguiController &controller, const pybind11::array_t<uint8_t> &img) { return controller.set_img(img); });
     pybind11::class_<SDFSpherePy>(m, "SDFSphere", R"(
     SDFSphere contains parameters of SDF.)")
