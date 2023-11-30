@@ -13,8 +13,10 @@ else ()
   message(FATAL_ERROR "python not found!")
 endif ()
 
-# override PYTHON_EXECUTABLE to use virtual environment
-set(PYTHON_EXECUTABLE ../venv/bin/python)
+# set CUSTOM_PYTHON_EXE to use virtual environment
+if (CUSTOM_PYTHON_EXE)
+  set(PYTHON_EXECUTABLE ${CUSTOM_PYTHON_EXE})
+endif ()
 execute_process(
     COMMAND ${PYTHON_EXECUTABLE} -c "from distutils import sysconfig; print(sysconfig.get_python_lib())"
     OUTPUT_VARIABLE SITE_PACKAGES_DIR
