@@ -29,8 +29,8 @@ if __name__ == "__main__":
 
         res_y = controller.get_height()
         res_x = controller.get_width()
-        fy = 300
-        fx = 300
+        fy = 300*3
+        fx = 300*3
         start = time.time_ns()
         img = sdf_experiments_py.render(fx, fy, res_x, res_y, sdf_object)
         # print((time.time_ns()-start)/1E6)
