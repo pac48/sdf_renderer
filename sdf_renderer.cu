@@ -103,7 +103,7 @@ namespace internal {
             float far_dist = 100.0;
             float thresh = 0.001;
             float dist = 1.0;
-            float scale = 0.1;
+            float scale = 1.0;
             float brightness = 200;
 
             float delta_orig[3] = {near_dist * (ind_x - res_x / 2) / fx, near_dist * (ind_y - res_y / 2) / fy,

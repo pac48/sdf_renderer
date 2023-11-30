@@ -10,10 +10,10 @@ if __name__ == "__main__":
 
     controller = sdf_experiments_py.ImguiController()
 
-    tmp = np.meshgrid(np.linspace(-1., 1, 10), np.linspace(-1., 1, 10), np.linspace(-1., 1, 10), indexing='ij')
+    tmp = np.meshgrid(np.linspace(-1., 1, 4), np.linspace(-1., 1, 4), np.linspace(-1., 1, 4), indexing='ij')
     centers = np.hstack([np.reshape(val, (-1, 1)) for val in tmp])
     sdf_object = sdf_experiments_py.SDFRadial(centers)
-    sdf_object.coefficients = 1 * (.5 - np.random.rand(sdf_object.coefficients.size))
+    sdf_object.coefficients = .29* (1 - np.random.rand(sdf_object.coefficients.size))
     sdf_object.coefficients[0] = -2.5
 
     sdf_object.T[0, 3] = 0
